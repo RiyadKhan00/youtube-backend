@@ -8,7 +8,7 @@ const registerUser = asyncHandler(async (req, res) => {
   const { fullName, username, email, password } = req.body;
 
   if (
-    [fullName, username, email, password].some((field) => field?.trim === "")
+    [fullName, username, email, password].some((field) => field?.trim() === "")
   ) {
     throw new ApiError(400, "All fields are require");
   }
@@ -17,12 +17,19 @@ const registerUser = asyncHandler(async (req, res) => {
     $or: [{ username }, { email }],
   });
 
-  if (!existedUser) {
+  if (existedUser) {
     throw new ApiError(409, "User with email");
   }
 
-  const avatarLocatPath = req.field?.avatar[0]?.path;
-  const coverImageLocalPath = req.field?.coverImage[0]?.path;
+  const avatarLocatPath = req.files?.avatar[0]?.path;
+  let coverImageLocalPath;
+  if (
+    req.files &&
+    Array.isArray(req.files.coverImage) &&
+    req.files.coverImage.length > 0
+  ) {
+    coverImageLocalPath = req.files.coverImage[0].path;
+  }
 
   if (!avatarLocatPath) {
     throw new ApiError(400, "Avatar file is required");
@@ -44,17 +51,17 @@ const registerUser = asyncHandler(async (req, res) => {
     username: username.toLowerCase(),
   });
 
-  const createUser = await User.findById(user._id).select(
-    "-password , -refreshToken"
+  const createdUser = await User.findById(user._id).select(
+    "-password -refreshToken"
   );
 
-  if (!createUser) {
-    throw new ApiError(500, "Somethin went wrong while registering the user");
+  if (!createdUser) {
+    throw new ApiError(500, "Something went wrong while registering the user");
   }
 
   return res
     .status(201)
-    .json(new ApiResponse(200, createUser, "User registered Successfully"));
+    .json(new ApiResponse(200, createdUser, "User registered Successfully"));
 });
 
 export { registerUser };
